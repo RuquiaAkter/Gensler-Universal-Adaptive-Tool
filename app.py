@@ -28,8 +28,12 @@ color_map = {
     "Data Center": "#1565C0"   # Deep Cobalt Blue
 }
 
+# Critical Fix: Initialize memory BEFORE the rest of the app runs
 if 'program_memory' not in st.session_state:
-    st.session_state.program_memory = {p: {row['Criterion']: 3 for _, row in df.iterrows()} for p in program_options}
+    if not df.empty:
+        st.session_state.program_memory = {p: {row['Criterion']: 3 for _, row in df.iterrows()} for p in program_options}
+    else:
+        st.session_state.program_memory = {p: {} for p in program_options}
 
 # -- 3. PAGE CONFIG --
 st.set_page_config(page_title="Universal Adaptive Building Tool", layout="wide")
@@ -56,6 +60,11 @@ if not df.empty:
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key_name = f"{target_program}_{row['Criterion']}"
+                
+                # Safety check for memory keys
+                if row['Criterion'] not in st.session_state.program_memory[target_program]:
+                    st.session_state.program_memory[target_program][row['Criterion']] = 3
+                
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
                     row['Criterion'], 0, 5, 
                     value=st.session_state.program_memory[target_program][row['Criterion']],
@@ -75,8 +84,6 @@ if not df.empty:
     best_alt = comp_df[comp_df['Typology'] != target_program].iloc[0]
 
     # -- 7. DASHBOARD LAYOUT (Symmetrical Realignment) --
-    
-    # ROW 1: Metrics and Main Visuals side-by-side
     col1, col2 = st.columns([1, 1])
 
     with col1:
@@ -99,7 +106,6 @@ if not df.empty:
         st.plotly_chart(fig_radar, use_container_width=True)
 
     with col2:
-        # We add a spacer to help with alignment
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.write("### Portfolio Comparison Matrix")
         fig_comp = px.bar(
@@ -111,7 +117,7 @@ if not df.empty:
             showlegend=False, 
             plot_bgcolor="rgba(0,0,0,0)", 
             paper_bgcolor="rgba(0,0,0,0)",
-            height=450 # Set fixed height to match Radar chart better
+            height=450 
         )
         st.plotly_chart(fig_comp, use_container_width=True)
 
@@ -134,5 +140,12 @@ if not df.empty:
         df['Gap'] = (5 - df['Current_Score']) * df[f"{target_program} Weight"]
         top_gaps = df.sort_values('Gap', ascending=False).head(4)
         
+        # Fixed the cut-off code here:
         fig_gap = px.bar(top_gaps, x='Gap', y='Criterion', orientation='h', 
-                         color='Gap', color_continuous_scale='Gre
+                         color='Gap', color_continuous_scale='Greys',
+                         title=f"Critical Fixes for {target_program}")
+        fig_gap.update_layout(height=250, margin=dict(t=50, b=0))
+        st.plotly_chart(fig_gap, use_container_width=True)
+
+else:
+    st.warning("Please check your Google Sheet connection.")
