@@ -21,7 +21,6 @@ df = load_live_data()
 # -- 2. TYPOLOGY-SPECIFIC MEMORY & DISTINCT COLORS --
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 
-# Unique high-contrast color palette
 color_map = {
     "Housing": "#2E7D32",      # Forest Green
     "Education": "#FBC02D",    # Golden Yellow
@@ -37,7 +36,7 @@ st.set_page_config(page_title="Universal Adaptive Building Tool", layout="wide")
 st.markdown(f"""
     <style>
     .main {{ background-color: #f4f7f6; }}
-    .stMetric {{ background-color: #ffffff; padding: 20px; border-radius: 12px; border-top: 6px solid #333333; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+    .stMetric {{ background-color: #ffffff; padding: 15px; border-radius: 12px; border-top: 6px solid #333333; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }}
     .recommendation-card {{ background-color: #ffffff; padding: 25px; border-radius: 12px; border-left: 10px solid #E03C31; margin-top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }}
     </style>
     """, unsafe_allow_html=True)
@@ -46,11 +45,11 @@ st.title("🏗️ Universal Adaptive Building Tool")
 
 if not df.empty:
     # -- 4. SELECT TARGET --
-    col_top1, col_top2 = st.columns([1, 2])
+    col_top1, _ = st.columns([1, 2])
     with col_top1:
         target_program = st.selectbox("🎯 Select Typology to Optimize", program_options)
 
-    # -- 5. SIDEBAR AUDIT (Memory Linked) --
+    # -- 5. SIDEBAR AUDIT --
     st.sidebar.header(f"🛠️ {target_program} Specifications")
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=True):
@@ -73,18 +72,17 @@ if not df.empty:
         comparison_data.append({"Typology": p, "Compatibility": p_total_pct})
     
     comp_df = pd.DataFrame(comparison_data).sort_values("Compatibility", ascending=False)
-    
-    # Smart Conversion Logic
     best_alt = comp_df[comp_df['Typology'] != target_program].iloc[0]
 
-    # -- 7. DASHBOARD LAYOUT --
-    col1, col2 = st.columns([1, 1.2])
+    # -- 7. DASHBOARD LAYOUT (Symmetrical Realignment) --
+    
+    # ROW 1: Metrics and Main Visuals side-by-side
+    col1, col2 = st.columns([1, 1])
 
     with col1:
         current_score = comp_df[comp_df['Typology'] == target_program]['Compatibility'].values[0]
         st.metric(f"Current {target_program} Compatibility", f"{current_score:.1f}%")
         
-        # Radar Chart with Target Specific Color
         fig_radar = go.Figure()
         fig_radar.add_trace(go.Scatterpolar(
             r=list(st.session_state.program_memory[target_program].values()),
@@ -95,12 +93,33 @@ if not df.empty:
         ))
         fig_radar.update_layout(
             polar=dict(radialaxis=dict(visible=True, range=[0, 5])),
-            title=dict(text=f"Structural Signature: {target_program}", font=dict(color=color_map[target_program], size=18))
+            title=dict(text=f"Structural Signature: {target_program}", font=dict(color=color_map[target_program], size=20)),
+            margin=dict(l=50, r=50, t=50, b=50)
         )
         st.plotly_chart(fig_radar, use_container_width=True)
 
     with col2:
-        # Conversion Suggestion Card
+        # We add a spacer to help with alignment
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.write("### Portfolio Comparison Matrix")
+        fig_comp = px.bar(
+            comp_df, x='Typology', y='Compatibility', 
+            color='Typology', color_discrete_map=color_map,
+            text_auto='.1f', range_y=[0, 105]
+        )
+        fig_comp.update_layout(
+            showlegend=False, 
+            plot_bgcolor="rgba(0,0,0,0)", 
+            paper_bgcolor="rgba(0,0,0,0)",
+            height=450 # Set fixed height to match Radar chart better
+        )
+        st.plotly_chart(fig_comp, use_container_width=True)
+
+    # ROW 2: The Logic and Recommendations
+    st.markdown("---")
+    rec_col, gap_col = st.columns([1, 1])
+
+    with rec_col:
         st.markdown(f"""
             <div class="recommendation-card" style="border-left-color: {color_map[best_alt['Typology']]}">
                 <h3 style="color: {color_map[best_alt['Typology']]}">💡 Smart Conversion Recommendation</h3>
@@ -110,26 +129,10 @@ if not df.empty:
             </div>
         """, unsafe_allow_html=True)
 
-        st.write("### Portfolio Comparison Matrix")
-        fig_comp = px.bar(
-            comp_df, x='Typology', y='Compatibility', 
-            color='Typology', color_discrete_map=color_map,
-            text_auto='.1f', range_y=[0, 105]
-        )
-        fig_comp.update_layout(showlegend=False, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-    # -- 8. GAP ANALYSIS (Horizontal Bar) --
-    st.markdown("---")
-    st.write(f"### ⚡ Critical Gaps for {target_program} Excellence")
-    df['Current_Score'] = df['Criterion'].map(st.session_state.program_memory[target_program])
-    df['Gap'] = (5 - df['Current_Score']) * df[f"{target_program} Weight"]
-    top_gaps = df.sort_values('Gap', ascending=False).head(5)
-    
-    fig_gap = px.bar(top_gaps, x='Gap', y='Criterion', orientation='h', 
-                     color='Gap', color_continuous_scale='Greys',
-                     title="Impact of Low Scores on Compatibility")
-    st.plotly_chart(fig_gap, use_container_width=True)
-
-else:
-    st.warning("Please check your Google Sheet connection.")
+    with gap_col:
+        df['Current_Score'] = df['Criterion'].map(st.session_state.program_memory[target_program])
+        df['Gap'] = (5 - df['Current_Score']) * df[f"{target_program} Weight"]
+        top_gaps = df.sort_values('Gap', ascending=False).head(4)
+        
+        fig_gap = px.bar(top_gaps, x='Gap', y='Criterion', orientation='h', 
+                         color='Gap', color_continuous_scale='Gre
