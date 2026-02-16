@@ -33,21 +33,19 @@ if 'building_dims' not in st.session_state:
 # -- 3. PAGE CONFIG & UI STYLING --
 st.set_page_config(page_title="Alchemy Chassis | Suite", layout="wide")
 
-# Optimized CSS to fix the "Grayed Out" look and unify fonts
+# CSS to fix font sizes, force white color, and style the help tooltips
 st.markdown("""
     <style>
-    /* Unified Header and Label Styling - Force White/High Contrast */
     .stSidebar h2, .stSidebar label p {
         font-size: 1.25rem !important;
         font-weight: 600 !important;
-        color: #FFFFFF !important; /* Force White for clarity */
+        color: #FFFFFF !important;
         opacity: 1 !important;
         margin-bottom: 10px !important;
     }
-    /* Fix for selectbox label specifically */
-    div[data-baseweb="select"] + label p {
-        font-size: 1.25rem !important;
-        font-weight: 600 !important;
+    /* Style the help icon tooltips specifically */
+    .stTooltipIcon {
+        color: #FFFFFF !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -76,15 +74,18 @@ if not df.empty:
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("Target Typology", program_options)
     
+    # -- RESTORED HELP TOOLTIPS --
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
+                # The 'help' parameter adds the "?" hover icon with the Scoring Notes
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
                     row['Criterion'], 0, 5, 
                     value=st.session_state.program_memory[target_program][row['Criterion']], 
-                    key=key
+                    key=key,
+                    help=str(row['Scoring Notes (0-5)'])
                 )
 
     # -- 5. MATH ENGINE --
