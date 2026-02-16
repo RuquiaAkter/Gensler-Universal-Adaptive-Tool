@@ -25,40 +25,39 @@ program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
 if 'program_memory' not in st.session_state:
-    st.session_state.program_memory = {p: {row['Criterion']: 3 for _, row in df.iterrows()} for p in program_options} if not df.empty else {p: {} for p in program_options}
+    st.session_state.program_memory = {p: {row['Criterion']: 3 for _, row in df.iterrows()} for p in program_options} if not df.empty else {p: {}}
 
 if 'building_dims' not in st.session_state:
     st.session_state.building_dims = {"sft": 100000, "stories": 5}
 
 # -- 3. PAGE CONFIG --
-st.set_page_config(page_title="Alchemy Chassis | Interior Design", layout="wide")
+st.set_page_config(page_title="Alchemy Chassis | Suite", layout="wide")
 st.title("🏗️ Alchemy Chassis: Universal Interior Design Suite")
 
 if not df.empty:
-    # -- 4. SIDEBAR: USER-FRIENDLY INPUTS --
+    # -- 4. SIDEBAR: STREAMLINED INPUTS --
     st.sidebar.header("🏢 Global Massing Specs")
     
-    # Use a form to capture "Enter" key behavior via a submit button
     with st.sidebar.form("input_form"):
         sft_input = st.number_input("Total SFT", value=st.session_state.building_dims["sft"], step=5000)
         stories_input = st.slider("Number of Stories", 1, 50, value=st.session_state.building_dims["stories"])
         
         st.markdown("---")
-        st.header("📸 Interior Design Tools")
-        uploaded_sketch = st.file_uploader("Upload Floor Plan or Interior Sketch", type=["png", "jpg", "jpeg"])
+        # Cleaned labels as requested
+        uploaded_sketch = st.file_uploader("Upload Sketch", type=["png", "jpg", "jpeg"])
         
         user_refinement = st.text_area(
-            "Refine Interior Prompt", 
+            "Prompt", 
             placeholder="e.g., Add biophilic walls, custom modular millwork, and polished concrete floors..."
         )
         
-        # This is your "Arrow/Enter" equivalent button
-        submitted = st.form_submit_button("➡️ Update & Apply Changes")
+        # User-friendly "Apply" button
+        submitted = st.form_submit_button("➡️ Apply")
         
         if submitted:
             st.session_state.building_dims["sft"] = sft_input
             st.session_state.building_dims["stories"] = stories_input
-            st.success("Specifications Updated!")
+            st.success("Applied!")
 
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("🎯 Target Typology", program_options)
@@ -95,6 +94,7 @@ if not df.empty:
         footprint = st.session_state.building_dims["sft"] / st.session_state.building_dims["stories"]
         side_dim = int(np.sqrt(footprint))
         
+        # Generating the procedural plan
         fig, ax = plt.subplots(figsize=(5,5))
         ax.set_facecolor('#f4f7f6')
         ax.add_patch(plt.Rectangle((0,0), side_dim, side_dim, color=color_map[target_program], alpha=0.2))
@@ -119,7 +119,7 @@ if not df.empty:
         
         if st.button("🚀 Generate High-Fidelity Interior"):
             with st.spinner("Processing architectural data..."):
-                if uploaded_sketch: st.sidebar.success("Reference applied.")
+                if uploaded_sketch: st.sidebar.success("Sketch applied.")
                 st.success("Rendering Complete!")
                 st.image("https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&q=80&w=1000")
 else:
