@@ -24,8 +24,8 @@ df = load_live_data()
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
-# Safety check and 0% initialization
-if 'program_memory' not in st.session_state or st.sidebar.button("🔄 Clear & Refresh Data"):
+# Initialize criteria to 0 for a clean start
+if 'program_memory' not in st.session_state:
     if not df.empty:
         st.session_state.program_memory = {p: {row['Criterion']: 0 for _, row in df.iterrows()} for p in program_options}
     else:
@@ -70,12 +70,13 @@ if not df.empty:
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("Target Typology", program_options)
     
-    # Audit Sliders with scoring notes
+    # Audit Sliders
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
+                # Safety check for KeyError
                 current_val = st.session_state.program_memory[target_program].get(row['Criterion'], 0)
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
                     row['Criterion'], 0, 5, value=current_val, key=key, help=str(row['Scoring Notes (0-5)'])
@@ -91,13 +92,18 @@ if not df.empty:
     tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ AI Interior Render"])
 
     with tab1:
-        # Dashboard Index Display
         st.markdown(f"### Current {target_program} Index: **{current_score:.1f}%**")
         
         # side-by-side charts
         col_c1, col_c2 = st.columns([1, 1.2])
         with col_c1:
-            fig_radar = go.Figure(data=go.Scatterpolar(r=list(st.session_state.program_memory[target_program].values()), theta=list(st.session_state.program_memory[target_program].keys()), fill='toself', line_color=color_map[target_program]))
+            # Fixed SyntaxError bracket
+            fig_radar = go.Figure(data=go.Scatterpolar(
+                r=list(st.session_state.program_memory[target_program].values()), 
+                theta=list(st.session_state.program_memory[target_program].keys()), 
+                fill='toself', 
+                line_color=color_map[target_program]
+            ))
             fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), paper_bgcolor='rgba(0,0,0,0)', font=dict(color="gray"), height=450)
             st.plotly_chart(fig_radar, use_container_width=True)
         with col_c2:
@@ -110,7 +116,6 @@ if not df.empty:
         # -- FINAL RESULT SECTION --
         st.subheader("🏁 Final Strategic Audit")
         
-        # Final result container
         st.markdown(f"""
         <div class="final-result">
             <h4 style="margin-top:0;">💡 Smart Conversion Recommendation</h4>
@@ -119,18 +124,17 @@ if not df.empty:
         </div>
         """, unsafe_allow_html=True)
         
-        # Financial Risk logic below the recommendation
+        # Financial Risk chart
         risk_data = [{"Criterion": k, "Impact": (5 - v) * 20} for k, v in st.session_state.program_memory[target_program].items()]
         risk_df = pd.DataFrame(risk_data).sort_values("Impact", ascending=False).head(5)
         
         if risk_df["Impact"].sum() > 0:
             st.markdown(f"#### 🚩 Top Financial Risks for {target_program}")
             fig_risk = px.bar(risk_df, y='Criterion', x='Impact', orientation='h', color='Impact', color_continuous_scale='Blues')
+            # Top risk in Red
             fig_risk.update_traces(marker_color=['#E03C31' if i == risk_df['Impact'].max() else '#3498db' for i in risk_df['Impact']])
             fig_risk.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
             st.plotly_chart(fig_risk, use_container_width=True)
-        else:
-            st.success("✅ Fully optimized. No major risks detected.")
 
     with tab2:
         st.header("📐 Generative Floor Plate")
