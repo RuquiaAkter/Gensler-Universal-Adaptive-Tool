@@ -31,24 +31,34 @@ if 'building_dims' not in st.session_state:
     st.session_state.building_dims = {"sft": 100000, "stories": 5}
 
 # -- 3. PAGE CONFIG --
-st.set_page_config(page_title="Alchemy Chassis | Professional Suite", layout="wide")
-st.title("🏗️ Alchemy Chassis: Professional AI Design Suite")
+st.set_page_config(page_title="Alchemy Chassis | Interior Design", layout="wide")
+st.title("🏗️ Alchemy Chassis: Universal Interior Design Suite")
 
 if not df.empty:
-    # -- 4. SIDEBAR: MASSING, SKETCH & AUDIT --
+    # -- 4. SIDEBAR: USER-FRIENDLY INPUTS --
     st.sidebar.header("🏢 Global Massing Specs")
-    st.session_state.building_dims["sft"] = st.sidebar.number_input("Total SFT", value=st.session_state.building_dims["sft"], step=5000)
-    st.sidebar.slider("Number of Stories", 1, 50, key="stories_slider")
-    st.session_state.building_dims["stories"] = st.session_state.stories_slider
     
-    # NEW: Image Loading and Prompt Refinement Tools
-    st.sidebar.markdown("---")
-    st.sidebar.header("🎨 AI Design Tools")
-    uploaded_sketch = st.sidebar.file_uploader("Upload Sketch/Reference", type=["png", "jpg", "jpeg"])
-    if uploaded_sketch:
-        st.sidebar.image(uploaded_sketch, caption="Reference Loaded", use_container_width=True)
-    
-    user_refinement = st.sidebar.text_area("Manual Prompt Refinement", placeholder="e.g., Add desert-modern landscaping, solar glass, and a rooftop garden...")
+    # Use a form to capture "Enter" key behavior via a submit button
+    with st.sidebar.form("input_form"):
+        sft_input = st.number_input("Total SFT", value=st.session_state.building_dims["sft"], step=5000)
+        stories_input = st.slider("Number of Stories", 1, 50, value=st.session_state.building_dims["stories"])
+        
+        st.markdown("---")
+        st.header("📸 Interior Design Tools")
+        uploaded_sketch = st.file_uploader("Upload Floor Plan or Interior Sketch", type=["png", "jpg", "jpeg"])
+        
+        user_refinement = st.text_area(
+            "Refine Interior Prompt", 
+            placeholder="e.g., Add biophilic walls, custom modular millwork, and polished concrete floors..."
+        )
+        
+        # This is your "Arrow/Enter" equivalent button
+        submitted = st.form_submit_button("➡️ Update & Apply Changes")
+        
+        if submitted:
+            st.session_state.building_dims["sft"] = sft_input
+            st.session_state.building_dims["stories"] = stories_input
+            st.success("Specifications Updated!")
 
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("🎯 Target Typology", program_options)
@@ -65,10 +75,9 @@ if not df.empty:
     # -- 5. MATH ENGINE --
     comparison_data = [{"Typology": p, "Compatibility": (pd.Series(df['Criterion'].map(st.session_state.program_memory[p])).fillna(3) / 5 * df[f"{p} Weight"]).sum()} for p in program_options]
     comp_df = pd.DataFrame(comparison_data).sort_values("Compatibility", ascending=False)
-    best_alt = comp_df[comp_df['Typology'] != target_program].iloc[0]
 
     # -- 6. LAYOUT TABS --
-    tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ AI Render Engine"])
+    tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ Interior AI Render"])
 
     with tab1:
         col1, col2 = st.columns([1, 1.2])
@@ -95,32 +104,23 @@ if not df.empty:
         st.pyplot(fig)
 
     with tab3:
-        st.header("✨ AI Architectural Rendering")
-        
-        # PROMPT BUILDING
+        st.header("✨ AI Interior Rendering")
         ff_height = st.session_state.program_memory[target_program].get("Floor-to-floor height", 3)
-        height_desc = "soaring triple-height" if ff_height > 4 else "spacious"
+        height_desc = "soaring triple-height volume" if ff_height > 4 else "spacious open-plan"
         
-        # BRIDGE: Combining Technical Data with User Manual Prompt
-        base_prompt = f"Cinematic 3D architectural rendering of a {st.session_state.building_dims['stories']}-story {target_program} building with a {height_desc} modular waffle slab chassis."
+        base_prompt = f"Hyper-realistic interior 3D rendering of a {target_program} with {height_desc}. Exposed structural waffle ceiling. "
         
         if user_refinement:
-            final_prompt = f"{base_prompt} Specific Details: {user_refinement}. Ultra-realistic, architectural visualization, 8k."
+            final_prompt = f"{base_prompt} Details: {user_refinement}. Cinematic lighting, 8k resolution."
         else:
-            final_prompt = f"{base_prompt} Large glass facade, ultra-realistic, photorealistic, 8k resolution."
+            final_prompt = f"{base_prompt} Floor-to-ceiling glass, minimalist modern aesthetic, 8k resolution."
         
-        st.write("**Active AI Instruction Set:**")
-        st.info(final_prompt)
+        st.info(f"**Current Prompt:** {final_prompt}")
         
-        if st.button("🚀 Generate High-Fidelity Render"):
-            with st.spinner("Processing architectural data and custom design inputs..."):
-                if uploaded_sketch:
-                    st.success("Reference sketch integrated into generation.")
-                
+        if st.button("🚀 Generate High-Fidelity Interior"):
+            with st.spinner("Processing architectural data..."):
+                if uploaded_sketch: st.sidebar.success("Reference applied.")
                 st.success("Rendering Complete!")
-                # For demo, links to a high-quality sample. 
-                # On your paid tier, this connects to your active generation tools.
-                st.image("https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1000")
-
+                st.image("https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&q=80&w=1000")
 else:
-    st.error("Connection Error.")
+    st.error("Connection Error: Check Google Sheet URL.")
