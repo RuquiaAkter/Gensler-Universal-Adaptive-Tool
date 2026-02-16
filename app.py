@@ -24,7 +24,6 @@ df = load_live_data()
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
-# Logic to ensure the index starts at 0%
 if 'program_memory' not in st.session_state:
     if not df.empty:
         st.session_state.program_memory = {p: {row['Criterion']: 0 for _, row in df.iterrows()} for p in program_options}
@@ -37,58 +36,34 @@ if 'building_dims' not in st.session_state:
 # -- 3. PAGE CONFIG & DYNAMIC UI STYLING --
 st.set_page_config(page_title="Gensler | Adaptavolve", layout="wide")
 
-# CSS using dynamic variables to support both Light and Dark modes
 st.markdown("""
     <style>
-    /* 1. Targets Sidebar Headers and Labels using Dynamic Theme Variables */
     [data-testid="stSidebar"] h2, 
     [data-testid="stSidebar"] label p {
         font-size: 1.25rem !important;
         font-weight: 600 !important;
-        color: var(--text-color) !important; /* Dynamic color fix */
+        color: var(--text-color) !important;
         opacity: 1 !important;
         margin-bottom: 10px !important;
     }
-
-    /* 2. Fixes the '?' Tooltip icon color */
-    [data-testid="stSidebar"] .stTooltipIcon {
-        color: var(--text-color) !important;
-    }
-
-    /* 3. Gensler Branding (Main Title) */
-    h1 {
-        color: #E03C31; /* Gensler Red */
-        font-weight: 800;
-    }
-    
-    /* 4. Desktop App Button Styling */
-    .stButton>button { 
-        width: 100%; 
-        border-radius: 5px; 
-        height: 3em; 
-        background-color: #E03C31; 
-        color: white; 
-        border: none; 
-    }
+    [data-testid="stSidebar"] .stTooltipIcon { color: var(--text-color) !important; }
+    h1 { color: #E03C31; font-weight: 800; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #E03C31; color: white; border: none; }
     .stButton>button:hover { background-color: #c0342a; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# UPDATED BRANDING
 st.title("Gensler Adaptable Building Chassis | Adaptavolve")
 
 if not df.empty:
-    # -- 4. SIDEBAR: BUILDING SCALE --
+    # -- 4. SIDEBAR --
     st.sidebar.header("Building Scale") 
-    
     with st.sidebar.form("input_form"):
         sft_input = st.number_input("Total SFT", value=st.session_state.building_dims["sft"], step=5000)
         stories_input = st.slider("Number of Stories", 1, 50, value=st.session_state.building_dims["stories"])
         st.markdown("---")
         uploaded_sketch = st.file_uploader("Upload Sketch", type=["png", "jpg", "jpeg"])
-        user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls and modular pods...")
-        
-        # Friendly "Apply" button
+        user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls...")
         submitted = st.form_submit_button("➡️ Apply")
         
         if submitted:
@@ -99,13 +74,11 @@ if not df.empty:
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("Target Typology", program_options)
     
-    # CRITERIA WITH HELP TOOLTIPS (COLLAPSED BY DEFAULT)
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
-                # help= provides the hover "?" icons with the Scoring Notes from the Sheet
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
                     row['Criterion'], 0, 5, 
                     value=st.session_state.program_memory[target_program][row['Criterion']], 
@@ -116,18 +89,21 @@ if not df.empty:
     # -- 5. MATH ENGINE --
     comparison_data = [{"Typology": p, "Compatibility": (pd.Series(df['Criterion'].map(st.session_state.program_memory[p])).fillna(0) / 5 * df[f"{p} Weight"]).sum()} for p in program_options]
     comp_df = pd.DataFrame(comparison_data).sort_values("Compatibility", ascending=False)
+    current_score = comp_df[comp_df['Typology'] == target_program]['Compatibility'].values[0]
+    best_alt = comp_df[comp_df['Typology'] != target_program].iloc[0]
 
     # -- 6. LAYOUT TABS --
     tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ AI Interior Render"])
 
     with tab1:
-        st.metric(f"{target_program} Index", f"{comp_df[comp_df['Typology']==target_program]['Compatibility'].values[0]:.1f}%")
+        # GRAPHICAL COMPOSITION: Recommendation Box
+        st.info(f"💡 **Smart Conversion Recommendation:** Based on your current chassis, your **{target_program}** design is highly adaptable for **{best_alt['Typology']}** with a **{best_alt['Compatibility']:.1f}%** compatibility rating.")
+
+        st.markdown(f"### {target_program} Index: **{current_score:.1f}%**")
         
-        # Responsive columns for Desktop/Mobile window resizing
-        col1, col2 = st.columns([1, 1], gap="large")
-        
-        with col1:
-            # Radar chart for Typology DNA
+        # GRAPHICAL COMPOSITION: Side-by-Side Charts
+        col_charts1, col_charts2 = st.columns([1, 1.2])
+        with col_charts1:
             fig_radar = go.Figure(data=go.Scatterpolar(
                 r=list(st.session_state.program_memory[target_program].values()), 
                 theta=list(st.session_state.program_memory[target_program].keys()), 
@@ -137,23 +113,45 @@ if not df.empty:
             fig_radar.update_layout(
                 polar=dict(radialaxis=dict(visible=True, range=[0, 5])), 
                 margin=dict(l=40, r=40, t=40, b=40),
-                paper_bgcolor='rgba(0,0,0,0)', # Transparent background
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color="gray")
+                paper_bgcolor='rgba(0,0,0,0)', font=dict(color="gray")
             )
             st.plotly_chart(fig_radar, use_container_width=True)
             
-        with col2:
-            # Bar chart for Comparison
-            fig_comp = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', color_discrete_map=color_map, text_auto='.1f', range_y=[0, 110])
+        with col_charts2:
+            fig_comp = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', 
+                              color_discrete_map=color_map, text_auto='.1f', range_y=[0, 110],
+                              title="Portfolio Comparison Matrix")
             fig_comp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_comp, use_container_width=True)
+
+        st.markdown("---")
+
+        # NEW LOGIC: Conversion Hurdles & Financial Risks
+        st.subheader(f"🚩 Top 5 Conversion Hurdles for {target_program}")
+        
+        # Calculate Risk Impact: Inverse of the current score (Higher risk if score is low)
+        risk_data = []
+        for crit, val in st.session_state.program_memory[target_program].items():
+            impact = (5 - val) * 20 # Normalize to a 0-100 scale
+            risk_data.append({"Criterion": crit, "Impact": impact})
+        
+        risk_df = pd.DataFrame(risk_data).sort_values("Impact", ascending=False).head(5)
+
+        if risk_df["Impact"].sum() > 0:
+            fig_risk = px.bar(risk_df, y='Criterion', x='Impact', orientation='h',
+                              title=f"Top Financial Risks for {target_program}",
+                              color='Impact', color_continuous_scale='Blues')
+            # Highlight the top risk in Red like in the image
+            fig_risk.update_traces(marker_color=['#E03C31' if i == risk_df['Impact'].max() else '#3498db' for i in risk_df['Impact']])
+            fig_risk.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False)
+            st.plotly_chart(fig_risk, use_container_width=True)
+        else:
+            st.success("✅ No major financial risks detected. Chassis is fully optimized.")
 
     with tab2:
         st.header("📐 Generative Floor Plate")
         footprint = st.session_state.building_dims["sft"] / st.session_state.building_dims["stories"]
         side_dim = int(np.sqrt(footprint))
-        
         fig, ax = plt.subplots(figsize=(5,5))
         ax.set_facecolor('#f4f7f6')
         ax.add_patch(plt.Rectangle((0,0), side_dim, side_dim, color=color_map[target_program], alpha=0.2))
@@ -166,7 +164,6 @@ if not df.empty:
         st.header("✨ AI Interior Rendering")
         ff_height = st.session_state.program_memory[target_program].get("Floor-to-floor height", 0)
         height_desc = "soaring triple-height volume" if ff_height > 4 else "spacious open-plan"
-        
         base_prompt = f"Hyper-realistic interior 3D rendering of a {target_program} with {height_desc}. Exposed structural waffle ceiling. "
         
         if user_refinement:
@@ -175,7 +172,6 @@ if not df.empty:
             final_prompt = f"{base_prompt} Floor-to-ceiling glass, minimalist modern aesthetic, 8k resolution."
         
         st.info(f"**Current Prompt:** {final_prompt}")
-        
         if st.button("🚀 Generate High-Fidelity Interior"):
             with st.spinner("Processing architectural data..."):
                 st.success("Rendering Complete!")
