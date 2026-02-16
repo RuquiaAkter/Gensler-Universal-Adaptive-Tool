@@ -56,8 +56,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# UPDATED BRANDING
-st.title("Gensler adaptableChassis | Adaptavolv")
+# UPDATED BRANDING WITH SPACING
+st.title("Gensler Adaptable Chassis | Adaptavolv")
 
 if not df.empty:
     # -- 4. SIDEBAR: BUILDING SCALE --
@@ -106,43 +106,4 @@ if not df.empty:
         col1, col2 = st.columns([1, 1.2])
         with col1:
             st.metric(f"{target_program} Index", f"{comp_df[comp_df['Typology']==target_program]['Compatibility'].values[0]:.1f}%")
-            fig_radar = go.Figure(data=go.Scatterpolar(r=list(st.session_state.program_memory[target_program].values()), theta=list(st.session_state.program_memory[target_program].keys()), fill='toself', line_color=color_map[target_program]))
-            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), margin=dict(l=40, r=40, t=40, b=40))
-            st.plotly_chart(fig_radar, use_container_width=True)
-        with col2:
-            fig_comp = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', color_discrete_map=color_map, text_auto='.1f', range_y=[0, 110])
-            st.plotly_chart(fig_comp, use_container_width=True)
-
-    with tab2:
-        st.header("📐 Generative Floor Plate")
-        footprint = st.session_state.building_dims["sft"] / st.session_state.building_dims["stories"]
-        side_dim = int(np.sqrt(footprint))
-        
-        fig, ax = plt.subplots(figsize=(5,5))
-        ax.set_facecolor('#f4f7f6')
-        ax.add_patch(plt.Rectangle((0,0), side_dim, side_dim, color=color_map[target_program], alpha=0.2))
-        core_size = max(20, side_dim * 0.15)
-        ax.add_patch(plt.Rectangle((side_dim/2 - core_size/2, side_dim/2 - core_size/2), core_size, core_size, color='black'))
-        ax.set_xlim(-10, side_dim + 10); ax.set_ylim(-10, side_dim + 10); ax.set_aspect('equal')
-        st.pyplot(fig)
-
-    with tab3:
-        st.header("✨ AI Interior Rendering")
-        ff_height = st.session_state.program_memory[target_program].get("Floor-to-floor height", 3)
-        height_desc = "soaring triple-height volume" if ff_height > 4 else "spacious open-plan"
-        
-        base_prompt = f"Hyper-realistic interior 3D rendering of a {target_program} with {height_desc}. Exposed structural waffle ceiling. "
-        
-        if user_refinement:
-            final_prompt = f"{base_prompt} Details: {user_refinement}. Cinematic lighting, 8k resolution."
-        else:
-            final_prompt = f"{base_prompt} Floor-to-ceiling glass, minimalist modern aesthetic, 8k resolution."
-        
-        st.info(f"**Current Prompt:** {final_prompt}")
-        
-        if st.button("🚀 Generate High-Fidelity Interior"):
-            with st.spinner("Processing architectural data..."):
-                st.success("Rendering Complete!")
-                st.image("https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&q=80&w=1000")
-else:
-    st.error("Connection Error: Check Google Sheet URL.")
+            fig_radar = go.Figure(data=go.Scatterpolar(r=list(st.session_state.program_memory[target
