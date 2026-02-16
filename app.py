@@ -24,7 +24,7 @@ df = load_live_data()
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
-# FIXED: Defaulting criteria to 0 so the app starts at 0% index
+# Ensures the app starts at 0% compatibility
 if 'program_memory' not in st.session_state:
     if not df.empty:
         st.session_state.program_memory = {p: {row['Criterion']: 0 for _, row in df.iterrows()} for p in program_options}
@@ -51,7 +51,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("Gensler Adaptable Chassis | Adaptavolv")
+# UPDATED TITLE
+st.title("Gensler Adaptable Building Chassis | Adaptavolv")
 
 if not df.empty:
     # -- 4. SIDEBAR: BUILDING SCALE --
@@ -97,7 +98,6 @@ if not df.empty:
         with col1:
             st.metric(f"{target_program} Index", f"{comp_df[comp_df['Typology']==target_program]['Compatibility'].values[0]:.1f}%")
             
-            # --- FIXED SYNTAX ERROR FROM PREVIOUS VERSION ---
             fig_radar = go.Figure(data=go.Scatterpolar(
                 r=list(st.session_state.program_memory[target_program].values()), 
                 theta=list(st.session_state.program_memory[target_program].keys()), 
