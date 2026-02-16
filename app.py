@@ -24,7 +24,7 @@ df = load_live_data()
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
-# SAFETY INITIALIZATION: Ensures every criterion in the Sheet exists in memory
+# Safety check and 0% initialization
 if 'program_memory' not in st.session_state or st.sidebar.button("🔄 Clear & Refresh Data"):
     if not df.empty:
         st.session_state.program_memory = {p: {row['Criterion']: 0 for _, row in df.iterrows()} for p in program_options}
@@ -39,6 +39,7 @@ st.set_page_config(page_title="Gensler | Adaptavolve", layout="wide")
 
 st.markdown("""
     <style>
+    /* Dynamic text color for Light/Dark mode readability */
     [data-testid="stSidebar"] h2, [data-testid="stSidebar"] label p {
         font-size: 1.25rem !important;
         font-weight: 600 !important;
@@ -46,6 +47,8 @@ st.markdown("""
     }
     h1 { color: #E03C31; font-weight: 800; }
     .stButton>button { width: 100%; background-color: #E03C31; color: white; border: none; border-radius: 5px; height: 3em;}
+    /* Final Result Styling */
+    .final-result { padding: 20px; border-radius: 10px; border-left: 5px solid #E03C31; background-color: var(--secondary-background-color); margin-top: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -67,13 +70,12 @@ if not df.empty:
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("Target Typology", program_options)
     
-    # Audit Sliders
+    # Audit Sliders with scoring notes
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
-                # Safety check to avoid the KeyError from your image
                 current_val = st.session_state.program_memory[target_program].get(row['Criterion'], 0)
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
                     row['Criterion'], 0, 5, value=current_val, key=key, help=str(row['Scoring Notes (0-5)'])
@@ -89,31 +91,43 @@ if not df.empty:
     tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ AI Interior Render"])
 
     with tab1:
-        # Recommendation Banner
-        st.info(f"💡 **Smart Conversion Recommendation:** Your current design for **{target_program}** is highly adaptable for **{best_alt['Typology']}** with a **{best_alt['Compatibility']:.1f}%** rating.")
-
-        # Side-by-Side Main Charts
+        # Dashboard Index Display
         st.markdown(f"### Current {target_program} Index: **{current_score:.1f}%**")
+        
+        # side-by-side charts
         col_c1, col_c2 = st.columns([1, 1.2])
         with col_c1:
             fig_radar = go.Figure(data=go.Scatterpolar(r=list(st.session_state.program_memory[target_program].values()), theta=list(st.session_state.program_memory[target_program].keys()), fill='toself', line_color=color_map[target_program]))
-            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), paper_bgcolor='rgba(0,0,0,0)', font=dict(color="gray"))
+            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), paper_bgcolor='rgba(0,0,0,0)', font=dict(color="gray"), height=450)
             st.plotly_chart(fig_radar, use_container_width=True)
         with col_c2:
             fig_matrix = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', color_discrete_map=color_map, text_auto='.1f', title="Portfolio Comparison Matrix")
-            fig_matrix.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_matrix.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=450)
             st.plotly_chart(fig_matrix, use_container_width=True)
 
         st.markdown("---")
 
-        # Bottom Risk Logic
-        st.subheader(f"🚩 Top Financial Risks for {target_program}")
+        # -- FINAL RESULT SECTION --
+        st.subheader("🏁 Final Strategic Audit")
+        
+        # Final result container
+        st.markdown(f"""
+        <div class="final-result">
+            <h4 style="margin-top:0;">💡 Smart Conversion Recommendation</h4>
+            <p>Based on your current building chassis, your <b>{target_program}</b> design is highly adaptable for <b>{best_alt['Typology']}</b> with a <b>{best_alt['Compatibility']:.1f}%</b> compatibility rating.</p>
+            <p style="font-size: 0.9rem; font-style: italic;">This pivot requires the least invasive structural intervention.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Financial Risk logic below the recommendation
         risk_data = [{"Criterion": k, "Impact": (5 - v) * 20} for k, v in st.session_state.program_memory[target_program].items()]
         risk_df = pd.DataFrame(risk_data).sort_values("Impact", ascending=False).head(5)
         
         if risk_df["Impact"].sum() > 0:
+            st.markdown(f"#### 🚩 Top Financial Risks for {target_program}")
             fig_risk = px.bar(risk_df, y='Criterion', x='Impact', orientation='h', color='Impact', color_continuous_scale='Blues')
             fig_risk.update_traces(marker_color=['#E03C31' if i == risk_df['Impact'].max() else '#3498db' for i in risk_df['Impact']])
+            fig_risk.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
             st.plotly_chart(fig_risk, use_container_width=True)
         else:
             st.success("✅ Fully optimized. No major risks detected.")
