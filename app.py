@@ -35,23 +35,17 @@ st.set_page_config(page_title="Alchemy Chassis | Suite", layout="wide")
 st.title("🏗️ Alchemy Chassis: Universal Interior Design Suite")
 
 if not df.empty:
-    # -- 4. SIDEBAR: STREAMLINED INPUTS --
-    st.sidebar.header("🏢 Global Massing Specs")
+    # -- 4. SIDEBAR: RENAMED & FIXED EXPANDERS --
+    st.sidebar.header("🏢 Building Scale") # Renamed from Global Massing Specs
     
     with st.sidebar.form("input_form"):
         sft_input = st.number_input("Total SFT", value=st.session_state.building_dims["sft"], step=5000)
         stories_input = st.slider("Number of Stories", 1, 50, value=st.session_state.building_dims["stories"])
         
         st.markdown("---")
-        # Cleaned labels as requested
         uploaded_sketch = st.file_uploader("Upload Sketch", type=["png", "jpg", "jpeg"])
+        user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls...")
         
-        user_refinement = st.text_area(
-            "Prompt", 
-            placeholder="e.g., Add biophilic walls, custom modular millwork, and polished concrete floors..."
-        )
-        
-        # User-friendly "Apply" button
         submitted = st.form_submit_button("➡️ Apply")
         
         if submitted:
@@ -62,13 +56,16 @@ if not df.empty:
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("🎯 Target Typology", program_options)
     
+    # FIXED: Added expanded=False so they collapse/expand correctly
     for cat in df['Category'].unique():
-        with st.sidebar.expander(f"📍 {cat}"):
+        with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
-                st.session_state.program_memory[target_program][row['Criterion']] = st.sidebar.slider(
-                    row['Criterion'], 0, 5, value=st.session_state.program_memory[target_program][row['Criterion']], key=key
+                st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
+                    row['Criterion'], 0, 5, 
+                    value=st.session_state.program_memory[target_program][row['Criterion']], 
+                    key=key
                 )
 
     # -- 5. MATH ENGINE --
@@ -94,7 +91,6 @@ if not df.empty:
         footprint = st.session_state.building_dims["sft"] / st.session_state.building_dims["stories"]
         side_dim = int(np.sqrt(footprint))
         
-        # Generating the procedural plan
         fig, ax = plt.subplots(figsize=(5,5))
         ax.set_facecolor('#f4f7f6')
         ax.add_patch(plt.Rectangle((0,0), side_dim, side_dim, color=color_map[target_program], alpha=0.2))
@@ -119,7 +115,6 @@ if not df.empty:
         
         if st.button("🚀 Generate High-Fidelity Interior"):
             with st.spinner("Processing architectural data..."):
-                if uploaded_sketch: st.sidebar.success("Sketch applied.")
                 st.success("Rendering Complete!")
                 st.image("https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&q=80&w=1000")
 else:
