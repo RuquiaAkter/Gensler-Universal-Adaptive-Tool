@@ -24,7 +24,8 @@ df = load_live_data()
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
-if 'program_memory' not in st.session_state:
+# SAFETY INITIALIZATION: Ensures every criterion in the Sheet exists in memory
+if 'program_memory' not in st.session_state or st.sidebar.button("🔄 Clear & Refresh Data"):
     if not df.empty:
         st.session_state.program_memory = {p: {row['Criterion']: 0 for _, row in df.iterrows()} for p in program_options}
     else:
@@ -38,18 +39,13 @@ st.set_page_config(page_title="Gensler | Adaptavolve", layout="wide")
 
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] label p {
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] label p {
         font-size: 1.25rem !important;
         font-weight: 600 !important;
         color: var(--text-color) !important;
-        opacity: 1 !important;
-        margin-bottom: 10px !important;
     }
-    [data-testid="stSidebar"] .stTooltipIcon { color: var(--text-color) !important; }
     h1 { color: #E03C31; font-weight: 800; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #E03C31; color: white; border: none; }
-    .stButton>button:hover { background-color: #c0342a; color: white; }
+    .stButton>button { width: 100%; background-color: #E03C31; color: white; border: none; border-radius: 5px; height: 3em;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -64,26 +60,23 @@ if not df.empty:
         st.markdown("---")
         uploaded_sketch = st.file_uploader("Upload Sketch", type=["png", "jpg", "jpeg"])
         user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls...")
-        submitted = st.form_submit_button("➡️ Apply")
-        
-        if submitted:
-            st.session_state.building_dims["sft"] = sft_input
-            st.session_state.building_dims["stories"] = stories_input
-            st.success("Applied!")
+        if st.form_submit_button("➡️ Apply"):
+            st.session_state.building_dims["sft"], st.session_state.building_dims["stories"] = sft_input, stories_input
+            st.rerun()
 
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("Target Typology", program_options)
     
+    # Audit Sliders
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
+                # Safety check to avoid the KeyError from your image
+                current_val = st.session_state.program_memory[target_program].get(row['Criterion'], 0)
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
-                    row['Criterion'], 0, 5, 
-                    value=st.session_state.program_memory[target_program][row['Criterion']], 
-                    key=key,
-                    help=str(row['Scoring Notes (0-5)'])
+                    row['Criterion'], 0, 5, value=current_val, key=key, help=str(row['Scoring Notes (0-5)'])
                 )
 
     # -- 5. MATH ENGINE --
@@ -96,57 +89,34 @@ if not df.empty:
     tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ AI Interior Render"])
 
     with tab1:
-        # GRAPHICAL COMPOSITION: Recommendation Box
-        st.info(f"💡 **Smart Conversion Recommendation:** Based on your current chassis, your **{target_program}** design is highly adaptable for **{best_alt['Typology']}** with a **{best_alt['Compatibility']:.1f}%** compatibility rating.")
+        # Recommendation Banner
+        st.info(f"💡 **Smart Conversion Recommendation:** Your current design for **{target_program}** is highly adaptable for **{best_alt['Typology']}** with a **{best_alt['Compatibility']:.1f}%** rating.")
 
-        st.markdown(f"### {target_program} Index: **{current_score:.1f}%**")
-        
-        # GRAPHICAL COMPOSITION: Side-by-Side Charts
-        col_charts1, col_charts2 = st.columns([1, 1.2])
-        with col_charts1:
-            fig_radar = go.Figure(data=go.Scatterpolar(
-                r=list(st.session_state.program_memory[target_program].values()), 
-                theta=list(st.session_state.program_memory[target_program].keys()), 
-                fill='toself', 
-                line_color=color_map[target_program]
-            ))
-            fig_radar.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, 5])), 
-                margin=dict(l=40, r=40, t=40, b=40),
-                paper_bgcolor='rgba(0,0,0,0)', font=dict(color="gray")
-            )
+        # Side-by-Side Main Charts
+        st.markdown(f"### Current {target_program} Index: **{current_score:.1f}%**")
+        col_c1, col_c2 = st.columns([1, 1.2])
+        with col_c1:
+            fig_radar = go.Figure(data=go.Scatterpolar(r=list(st.session_state.program_memory[target_program].values()), theta=list(st.session_state.program_memory[target_program].keys()), fill='toself', line_color=color_map[target_program]))
+            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), paper_bgcolor='rgba(0,0,0,0)', font=dict(color="gray"))
             st.plotly_chart(fig_radar, use_container_width=True)
-            
-        with col_charts2:
-            fig_comp = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', 
-                              color_discrete_map=color_map, text_auto='.1f', range_y=[0, 110],
-                              title="Portfolio Comparison Matrix")
-            fig_comp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_comp, use_container_width=True)
+        with col_c2:
+            fig_matrix = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', color_discrete_map=color_map, text_auto='.1f', title="Portfolio Comparison Matrix")
+            fig_matrix.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_matrix, use_container_width=True)
 
         st.markdown("---")
 
-        # NEW LOGIC: Conversion Hurdles & Financial Risks
-        st.subheader(f"🚩 Top 5 Conversion Hurdles for {target_program}")
-        
-        # Calculate Risk Impact: Inverse of the current score (Higher risk if score is low)
-        risk_data = []
-        for crit, val in st.session_state.program_memory[target_program].items():
-            impact = (5 - val) * 20 # Normalize to a 0-100 scale
-            risk_data.append({"Criterion": crit, "Impact": impact})
-        
+        # Bottom Risk Logic
+        st.subheader(f"🚩 Top Financial Risks for {target_program}")
+        risk_data = [{"Criterion": k, "Impact": (5 - v) * 20} for k, v in st.session_state.program_memory[target_program].items()]
         risk_df = pd.DataFrame(risk_data).sort_values("Impact", ascending=False).head(5)
-
+        
         if risk_df["Impact"].sum() > 0:
-            fig_risk = px.bar(risk_df, y='Criterion', x='Impact', orientation='h',
-                              title=f"Top Financial Risks for {target_program}",
-                              color='Impact', color_continuous_scale='Blues')
-            # Highlight the top risk in Red like in the image
+            fig_risk = px.bar(risk_df, y='Criterion', x='Impact', orientation='h', color='Impact', color_continuous_scale='Blues')
             fig_risk.update_traces(marker_color=['#E03C31' if i == risk_df['Impact'].max() else '#3498db' for i in risk_df['Impact']])
-            fig_risk.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False)
             st.plotly_chart(fig_risk, use_container_width=True)
         else:
-            st.success("✅ No major financial risks detected. Chassis is fully optimized.")
+            st.success("✅ Fully optimized. No major risks detected.")
 
     with tab2:
         st.header("📐 Generative Floor Plate")
@@ -157,24 +127,12 @@ if not df.empty:
         ax.add_patch(plt.Rectangle((0,0), side_dim, side_dim, color=color_map[target_program], alpha=0.2))
         core_size = max(20, side_dim * 0.15)
         ax.add_patch(plt.Rectangle((side_dim/2 - core_size/2, side_dim/2 - core_size/2), core_size, core_size, color='black'))
-        ax.set_xlim(-10, side_dim + 10); ax.set_ylim(-10, side_dim + 10); ax.set_aspect('equal')
         st.pyplot(fig)
 
     with tab3:
         st.header("✨ AI Interior Rendering")
-        ff_height = st.session_state.program_memory[target_program].get("Floor-to-floor height", 0)
-        height_desc = "soaring triple-height volume" if ff_height > 4 else "spacious open-plan"
-        base_prompt = f"Hyper-realistic interior 3D rendering of a {target_program} with {height_desc}. Exposed structural waffle ceiling. "
-        
-        if user_refinement:
-            final_prompt = f"{base_prompt} Details: {user_refinement}. Cinematic lighting, 8k resolution."
-        else:
-            final_prompt = f"{base_prompt} Floor-to-ceiling glass, minimalist modern aesthetic, 8k resolution."
-        
-        st.info(f"**Current Prompt:** {final_prompt}")
         if st.button("🚀 Generate High-Fidelity Interior"):
-            with st.spinner("Processing architectural data..."):
-                st.success("Rendering Complete!")
-                st.image("https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&q=80&w=1000")
+            st.success("Rendering Complete!")
+            st.image("https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&q=80&w=1000")
 else:
     st.error("Connection Error: Check Google Sheet URL.")
