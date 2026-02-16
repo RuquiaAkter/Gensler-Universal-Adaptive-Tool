@@ -24,7 +24,7 @@ df = load_live_data()
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
-# Ensures the app starts at 0% compatibility
+# Logic to ensure the index starts at 0%
 if 'program_memory' not in st.session_state:
     if not df.empty:
         st.session_state.program_memory = {p: {row['Criterion']: 0 for _, row in df.iterrows()} for p in program_options}
@@ -39,19 +39,22 @@ st.set_page_config(page_title="Gensler | Adaptavolv", layout="wide")
 
 st.markdown("""
     <style>
+    /* Force white text for sidebar labels and headers */
     .stSidebar h2, .stSidebar label p {
         font-size: 1.25rem !important;
         font-weight: 600 !important;
         color: #FFFFFF !important;
         opacity: 1 !important;
-        margin-bottom: 10px !important;
     }
     .stTooltipIcon { color: #FFFFFF !important; }
     h1 { color: #E03C31; font-weight: 800; }
+    
+    /* Make buttons and inputs look more like a Desktop App */
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #E03C31; color: white; border: none; }
+    .stButton>button:hover { background-color: #c0342a; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# UPDATED TITLE
 st.title("Gensler Adaptable Building Chassis | Adaptavolv")
 
 if not df.empty:
@@ -94,21 +97,31 @@ if not df.empty:
     tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ AI Interior Render"])
 
     with tab1:
-        col1, col2 = st.columns([1, 1.2])
+        st.metric(f"{target_program} Index", f"{comp_df[comp_df['Typology']==target_program]['Compatibility'].values[0]:.1f}%")
+        
+        # Fluid column layout for Desktop/Mobile resizing
+        col1, col2 = st.columns([1, 1], gap="large")
+        
         with col1:
-            st.metric(f"{target_program} Index", f"{comp_df[comp_df['Typology']==target_program]['Compatibility'].values[0]:.1f}%")
-            
+            # Radar chart fix for syntax error
             fig_radar = go.Figure(data=go.Scatterpolar(
                 r=list(st.session_state.program_memory[target_program].values()), 
                 theta=list(st.session_state.program_memory[target_program].keys()), 
                 fill='toself', 
                 line_color=color_map[target_program]
             ))
-            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), margin=dict(l=40, r=40, t=40, b=40))
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 5])), 
+                margin=dict(l=40, r=40, t=40, b=40),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color="white")
+            )
             st.plotly_chart(fig_radar, use_container_width=True)
             
         with col2:
             fig_comp = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', color_discrete_map=color_map, text_auto='.1f', range_y=[0, 110])
+            fig_comp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="white"))
             st.plotly_chart(fig_comp, use_container_width=True)
 
     with tab2:
