@@ -31,11 +31,12 @@ if 'building_dims' not in st.session_state:
     st.session_state.building_dims = {"sft": 100000, "stories": 5}
 
 # -- 3. PAGE CONFIG & UI STYLING --
-st.set_page_config(page_title="Alchemy Chassis | Suite", layout="wide")
+st.set_page_config(page_title="Gensler | Adaptavolv", layout="wide")
 
-# CSS to fix font sizes, force white color, and style the help tooltips
+# CSS to unify fonts, force white color, and style the help tooltips
 st.markdown("""
     <style>
+    /* Unified Header and Label Styling - White for Dark Mode Clarity */
     .stSidebar h2, .stSidebar label p {
         font-size: 1.25rem !important;
         font-weight: 600 !important;
@@ -47,10 +48,16 @@ st.markdown("""
     .stTooltipIcon {
         color: #FFFFFF !important;
     }
+    /* Main Title Styling */
+    h1 {
+        color: #E03C31; /* Gensler Red */
+        font-weight: 800;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏗️ Alchemy Chassis: Universal Interior Design Suite")
+# UPDATED BRANDING
+st.title("Gensler adaptableChassis | Adaptavolv")
 
 if not df.empty:
     # -- 4. SIDEBAR: BUILDING SCALE --
@@ -62,7 +69,7 @@ if not df.empty:
         
         st.markdown("---")
         uploaded_sketch = st.file_uploader("Upload Sketch", type=["png", "jpg", "jpeg"])
-        user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls...")
+        user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls and modular pods...")
         
         submitted = st.form_submit_button("➡️ Apply")
         
@@ -74,13 +81,13 @@ if not df.empty:
     st.sidebar.markdown("---")
     target_program = st.sidebar.selectbox("Target Typology", program_options)
     
-    # -- RESTORED HELP TOOLTIPS --
+    # CRITERIA WITH HELP TOOLTIPS
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
-                # The 'help' parameter adds the "?" hover icon with the Scoring Notes
+                # The 'help' parameter provides the hover "?" icons with the Scoring Notes
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
                     row['Criterion'], 0, 5, 
                     value=st.session_state.program_memory[target_program][row['Criterion']], 
@@ -93,7 +100,7 @@ if not df.empty:
     comp_df = pd.DataFrame(comparison_data).sort_values("Compatibility", ascending=False)
 
     # -- 6. LAYOUT TABS --
-    tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ Interior AI Render"])
+    tab1, tab2, tab3 = st.tabs(["📊 Performance Dashboard", "📐 Plan Generator", "✨ AI Interior Render"])
 
     with tab1:
         col1, col2 = st.columns([1, 1.2])
