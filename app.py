@@ -30,13 +30,28 @@ if 'program_memory' not in st.session_state:
 if 'building_dims' not in st.session_state:
     st.session_state.building_dims = {"sft": 100000, "stories": 5}
 
-# -- 3. PAGE CONFIG --
+# -- 3. PAGE CONFIG & UNIFIED STYLING --
 st.set_page_config(page_title="Alchemy Chassis | Suite", layout="wide")
+
+# CSS to make Sidebar Headers and Selectbox Labels identical
+st.markdown("""
+    <style>
+    /* Target the sidebar header and selectbox labels */
+    .stSidebar h2, .stSidebar label {
+        font-size: 1.25rem !important;
+        font-weight: 600 !important;
+        color: #31333F !important;
+        margin-bottom: 10px !important;
+        display: block !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.title("🏗️ Alchemy Chassis: Universal Interior Design Suite")
 
 if not df.empty:
-    # -- 4. SIDEBAR: RENAMED & FIXED EXPANDERS --
-    st.sidebar.header("🏢 Building Scale") # Renamed from Global Massing Specs
+    # -- 4. SIDEBAR: UNIFIED STYLE --
+    st.sidebar.header("Building Scale") 
     
     with st.sidebar.form("input_form"):
         sft_input = st.number_input("Total SFT", value=st.session_state.building_dims["sft"], step=5000)
@@ -54,7 +69,8 @@ if not df.empty:
             st.success("Applied!")
 
     st.sidebar.markdown("---")
-    target_program = st.sidebar.selectbox("🎯 Target Typology", program_options)
+    # This label will now match the "Building Scale" header perfectly
+    target_program = st.sidebar.selectbox("Target Typology", program_options)
     
     # FIXED: Added expanded=False so they collapse/expand correctly
     for cat in df['Category'].unique():
