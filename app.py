@@ -24,8 +24,12 @@ df = load_live_data()
 program_options = ["Housing", "Education", "Lab", "Data Center"]
 color_map = {"Housing": "#2E7D32", "Education": "#FBC02D", "Lab": "#E03C31", "Data Center": "#1565C0"}
 
+# FIXED: Defaulting criteria to 0 so the app starts at 0% index
 if 'program_memory' not in st.session_state:
-    st.session_state.program_memory = {p: {row['Criterion']: 3 for _, row in df.iterrows()} for p in program_options} if not df.empty else {p: {}}
+    if not df.empty:
+        st.session_state.program_memory = {p: {row['Criterion']: 0 for _, row in df.iterrows()} for p in program_options}
+    else:
+        st.session_state.program_memory = {p: {} for p in program_options}
 
 if 'building_dims' not in st.session_state:
     st.session_state.building_dims = {"sft": 100000, "stories": 5}
@@ -82,7 +86,7 @@ if not df.empty:
                 )
 
     # -- 5. MATH ENGINE --
-    comparison_data = [{"Typology": p, "Compatibility": (pd.Series(df['Criterion'].map(st.session_state.program_memory[p])).fillna(3) / 5 * df[f"{p} Weight"]).sum()} for p in program_options]
+    comparison_data = [{"Typology": p, "Compatibility": (pd.Series(df['Criterion'].map(st.session_state.program_memory[p])).fillna(0) / 5 * df[f"{p} Weight"]).sum()} for p in program_options]
     comp_df = pd.DataFrame(comparison_data).sort_values("Compatibility", ascending=False)
 
     # -- 6. LAYOUT TABS --
@@ -92,7 +96,8 @@ if not df.empty:
         col1, col2 = st.columns([1, 1.2])
         with col1:
             st.metric(f"{target_program} Index", f"{comp_df[comp_df['Typology']==target_program]['Compatibility'].values[0]:.1f}%")
-            # --- FIXED SYNTAX ERROR HERE ---
+            
+            # --- FIXED SYNTAX ERROR FROM PREVIOUS VERSION ---
             fig_radar = go.Figure(data=go.Scatterpolar(
                 r=list(st.session_state.program_memory[target_program].values()), 
                 theta=list(st.session_state.program_memory[target_program].keys()), 
@@ -101,6 +106,7 @@ if not df.empty:
             ))
             fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), margin=dict(l=40, r=40, t=40, b=40))
             st.plotly_chart(fig_radar, use_container_width=True)
+            
         with col2:
             fig_comp = px.bar(comp_df, x='Typology', y='Compatibility', color='Typology', color_discrete_map=color_map, text_auto='.1f', range_y=[0, 110])
             st.plotly_chart(fig_comp, use_container_width=True)
@@ -119,7 +125,7 @@ if not df.empty:
 
     with tab3:
         st.header("✨ AI Interior Rendering")
-        ff_height = st.session_state.program_memory[target_program].get("Floor-to-floor height", 3)
+        ff_height = st.session_state.program_memory[target_program].get("Floor-to-floor height", 0)
         height_desc = "soaring triple-height volume" if ff_height > 4 else "spacious open-plan"
         base_prompt = f"Hyper-realistic interior 3D rendering of a {target_program} with {height_desc}. Exposed structural waffle ceiling. "
         
