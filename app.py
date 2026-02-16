@@ -30,19 +30,24 @@ if 'program_memory' not in st.session_state:
 if 'building_dims' not in st.session_state:
     st.session_state.building_dims = {"sft": 100000, "stories": 5}
 
-# -- 3. PAGE CONFIG & UNIFIED STYLING --
+# -- 3. PAGE CONFIG & UI STYLING --
 st.set_page_config(page_title="Alchemy Chassis | Suite", layout="wide")
 
-# CSS to make Sidebar Headers and Selectbox Labels identical
+# Optimized CSS to fix the "Grayed Out" look and unify fonts
 st.markdown("""
     <style>
-    /* Target the sidebar header and selectbox labels */
-    .stSidebar h2, .stSidebar label {
+    /* Unified Header and Label Styling - Force White/High Contrast */
+    .stSidebar h2, .stSidebar label p {
         font-size: 1.25rem !important;
         font-weight: 600 !important;
-        color: #31333F !important;
+        color: #FFFFFF !important; /* Force White for clarity */
+        opacity: 1 !important;
         margin-bottom: 10px !important;
-        display: block !important;
+    }
+    /* Fix for selectbox label specifically */
+    div[data-baseweb="select"] + label p {
+        font-size: 1.25rem !important;
+        font-weight: 600 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -50,7 +55,7 @@ st.markdown("""
 st.title("🏗️ Alchemy Chassis: Universal Interior Design Suite")
 
 if not df.empty:
-    # -- 4. SIDEBAR: UNIFIED STYLE --
+    # -- 4. SIDEBAR: BUILDING SCALE --
     st.sidebar.header("Building Scale") 
     
     with st.sidebar.form("input_form"):
@@ -69,10 +74,8 @@ if not df.empty:
             st.success("Applied!")
 
     st.sidebar.markdown("---")
-    # This label will now match the "Building Scale" header perfectly
     target_program = st.sidebar.selectbox("Target Typology", program_options)
     
-    # FIXED: Added expanded=False so they collapse/expand correctly
     for cat in df['Category'].unique():
         with st.sidebar.expander(f"📍 {cat}", expanded=False):
             cat_group = df[df['Category'] == cat]
