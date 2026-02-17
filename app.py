@@ -47,8 +47,8 @@ st.markdown("""
     }
     h1 { color: #E03C31; font-weight: 800; }
     .stButton>button { width: 100%; background-color: #E03C31; color: white; border: none; border-radius: 5px; height: 3em;}
-    /* Final Result Styling */
-    .final-result { padding: 20px; border-radius: 10px; border-left: 5px solid #E03C31; background-color: var(--secondary-background-color); margin-top: 20px; }
+    /* Final Result Box Styling */
+    .final-result { padding: 20px; border-radius: 10px; border-left: 5px solid #E03C31; background-color: var(--secondary-background-color); margin-top: 20px; color: var(--text-color); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,7 +62,7 @@ if not df.empty:
         stories_input = st.slider("Number of Stories", 1, 50, value=st.session_state.building_dims["stories"])
         st.markdown("---")
         uploaded_sketch = st.file_uploader("Upload Sketch", type=["png", "jpg", "jpeg"])
-        user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls...")
+        user_refinement = st.text_area("Prompt", placeholder="e.g., Add biophilic walls and modular pods...")
         if st.form_submit_button("➡️ Apply"):
             st.session_state.building_dims["sft"], st.session_state.building_dims["stories"] = sft_input, stories_input
             st.rerun()
@@ -76,7 +76,6 @@ if not df.empty:
             cat_group = df[df['Category'] == cat]
             for _, row in cat_group.iterrows():
                 key = f"{target_program}_{row['Criterion']}"
-                # Safety check for KeyError
                 current_val = st.session_state.program_memory[target_program].get(row['Criterion'], 0)
                 st.session_state.program_memory[target_program][row['Criterion']] = st.slider(
                     row['Criterion'], 0, 5, value=current_val, key=key, help=str(row['Scoring Notes (0-5)'])
@@ -94,16 +93,10 @@ if not df.empty:
     with tab1:
         st.markdown(f"### Current {target_program} Index: **{current_score:.1f}%**")
         
-        # side-by-side charts
+        # Side-by-side charts
         col_c1, col_c2 = st.columns([1, 1.2])
         with col_c1:
-            # Fixed SyntaxError bracket
-            fig_radar = go.Figure(data=go.Scatterpolar(
-                r=list(st.session_state.program_memory[target_program].values()), 
-                theta=list(st.session_state.program_memory[target_program].keys()), 
-                fill='toself', 
-                line_color=color_map[target_program]
-            ))
+            fig_radar = go.Figure(data=go.Scatterpolar(r=list(st.session_state.program_memory[target_program].values()), theta=list(st.session_state.program_memory[target_program].keys()), fill='toself', line_color=color_map[target_program]))
             fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), paper_bgcolor='rgba(0,0,0,0)', font=dict(color="gray"), height=450)
             st.plotly_chart(fig_radar, use_container_width=True)
         with col_c2:
@@ -116,6 +109,7 @@ if not df.empty:
         # -- FINAL RESULT SECTION --
         st.subheader("🏁 Final Strategic Audit")
         
+        # Recommendation Banner
         st.markdown(f"""
         <div class="final-result">
             <h4 style="margin-top:0;">💡 Smart Conversion Recommendation</h4>
@@ -124,17 +118,26 @@ if not df.empty:
         </div>
         """, unsafe_allow_html=True)
         
-        # Financial Risk chart
-        risk_data = [{"Criterion": k, "Impact": (5 - v) * 20} for k, v in st.session_state.program_memory[target_program].items()]
+        # FINANCIAL RISK LOGIC: Now starts at 0 if no audit is done
+        any_audit_done = any(v > 0 for v in st.session_state.program_memory[target_program].values())
+        
+        if any_audit_done:
+            risk_data = [{"Criterion": k, "Impact": (5 - v) * 20} for k, v in st.session_state.program_memory[target_program].items()]
+        else:
+            # Clean start: Risk is 0 until audit begins
+            risk_data = [{"Criterion": k, "Impact": 0} for k, v in st.session_state.program_memory[target_program].items()]
+            
         risk_df = pd.DataFrame(risk_data).sort_values("Impact", ascending=False).head(5)
         
-        if risk_df["Impact"].sum() > 0:
-            st.markdown(f"#### 🚩 Top Financial Risks for {target_program}")
-            fig_risk = px.bar(risk_df, y='Criterion', x='Impact', orientation='h', color='Impact', color_continuous_scale='Blues')
-            # Top risk in Red
-            fig_risk.update_traces(marker_color=['#E03C31' if i == risk_df['Impact'].max() else '#3498db' for i in risk_df['Impact']])
-            fig_risk.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
-            st.plotly_chart(fig_risk, use_container_width=True)
+        st.markdown(f"#### 🚩 Top Financial Risks for {target_program}")
+        fig_risk = px.bar(risk_df, y='Criterion', x='Impact', orientation='h', color='Impact', color_continuous_scale='Blues', range_x=[0, 105])
+        
+        # Highlight top risk in Red
+        if any_audit_done:
+            fig_risk.update_traces(marker_color=['#E03C31' if i == risk_df['Impact'].max() and i > 0 else '#3498db' for i in risk_df['Impact']])
+        
+        fig_risk.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
+        st.plotly_chart(fig_risk, use_container_width=True)
 
     with tab2:
         st.header("📐 Generative Floor Plate")
